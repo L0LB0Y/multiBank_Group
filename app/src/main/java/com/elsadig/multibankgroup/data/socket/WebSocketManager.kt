@@ -19,11 +19,11 @@ class WebSocketManager(private val ioScope: CoroutineScope) {
     private val client = OkHttpClient()
     private var webSocket: WebSocket? = null
 
-    private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
-    val connectionState: StateFlow<ConnectionState> = _connectionState
+    private val _connectionState = MutableStateFlow(false)
+    val connectionState: StateFlow<Boolean> = _connectionState
 
     private val _incomingMessages = MutableSharedFlow<String>()
-    // send back StockPriceDto as JSON
+
     val incomingMessages: SharedFlow<String> = _incomingMessages
 
     fun connect() {
@@ -36,7 +36,7 @@ class WebSocketManager(private val ioScope: CoroutineScope) {
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
 
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                _connectionState.value = ConnectionState.CONNECTED
+                _connectionState.value = true
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -44,18 +44,17 @@ class WebSocketManager(private val ioScope: CoroutineScope) {
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                _connectionState.value = ConnectionState.DISCONNECTED
+                _connectionState.value = false
                 webSocket.close(code, reason)
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                _connectionState.value = ConnectionState.DISCONNECTED
+                _connectionState.value = false
                 this@WebSocketManager.webSocket = null
             }
         })
     }
 
-    // receive StockPriceDto as JSON
     fun send(message: String) {
         webSocket?.send(message)
     }
@@ -63,11 +62,6 @@ class WebSocketManager(private val ioScope: CoroutineScope) {
     fun disconnect() {
         webSocket?.close(1000, "User Manual close")
         webSocket = null
-        _connectionState.value = ConnectionState.DISCONNECTED
+        _connectionState.value = false
     }
-}
-
-enum class ConnectionState {
-    CONNECTED,
-    DISCONNECTED
 }
